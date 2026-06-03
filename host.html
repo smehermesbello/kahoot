@@ -127,7 +127,10 @@
         document.getElementById('painel-espera').style.display = 'block';
         document.getElementById('pin-sala').innerText = pinSala;
 
-        const urlAluno = window.location.href.replace('host.html', 'index.html') + `?sala=${pinSala}`;
+        // Gera o link para o QR Code de forma automática e amigável para mobile
+        let baseU = window.location.href;
+        let urlAluno = baseU.substring(0, baseU.lastIndexOf("/")) + `/index.html?sala=${pinSala}`;
+
         document.getElementById("qrcode").innerHTML = "";
         new QRCode(document.getElementById("qrcode"), { text: urlAluno, width: 200, height: 200 });
 
@@ -181,7 +184,7 @@
             const jogadores = snapshot.val() || {};
             
             Object.keys(jogadores).forEach(nome => {
-                const jogador = jogadores[nome];
+                let jogador = jogadores[nome];
                 let pontosGanhos = 0;
 
                 if (jogador.ultima_resposta === q.correta) {
@@ -197,8 +200,7 @@
 
                 database.ref(`salas/${pinSala}/jogadores/${nome}`).update({
                     score: novoScore,
-                    ganhouPontosNessaRodada: pontosGanhos,
-                    ultima_resposta: ""
+                    ganhouPontosNessaRodada: pontosGanhos
                 });
             });
 
