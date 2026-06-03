@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle - Player</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f2f2f2; height: 100vh; display: flex; flex-direction: column; }
+        .status-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-size: 24px; font-weight: bold; text-align: center; padding: 20px; box-sizing: border-box; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; flex-grow: 1; padding: 10px; box-sizing: border-box; }
+        .btn { border: none; cursor: pointer; border-radius: 8px; display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.95); }
+        .red { background-color: #e21b3c; }
+        .blue { background-color: #1368ce; }
+        .yellow { background-color: #d89e00; }
+        .green { background-color: #26890c; }
+        .triangle { width: 0; height: 0; border-left: 25px solid transparent; border-right: 25px solid transparent; border-bottom: 45px solid white; }
+        .diamond { width: 40px; height: 40px; background: white; transform: rotate(45deg); }
+        .circle { width: 45px; height: 45px; background: white; border-radius: 50%; }
+        .square { width: 40px; height: 40px; background: white; }
+        #timer { font-size: 20px; background: #333; color: white; text-align: center; padding: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="timer" style="display:none;">Tempo: <span id="segundos">40</span>s</div>
+
+<div id="tela-espera" class="status-screen" style="background:#46178f; color:white;">
+    <p>Você está dentro! Veja seu nome no projetor e aguarde...</p>
+</div>
+
+<div id="tela-jogo" class="grid-container" style="display:none;">
+    <button class="btn red" onclick="enviarResposta('A')"><div class="triangle"></div></button>
+    <button class="btn blue" onclick="enviarResposta('B')"><div class="diamond"></div></button>
+    <button class="btn yellow" onclick="enviarResposta('C')"><div class="circle"></div></button>
+    <button class="btn green" onclick="enviarResposta('D')"><div class="square"></div></button>
+</div>
+
+<div id="tela-resultado" class="status-screen" style="display:none;">
+    <p id="resultado-texto"></p>
+    <p id="feedback-score" style="font-size:18px;"></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyD-JQw67r1lrSz-o5DnsdVjVes33EkbsuM",
+        authDomain: "quiz-kahoot-hermes.firebaseapp.com",
+        databaseURL: "https://quiz-kahoot-hermes-default-rtdb.firebaseio.com",
