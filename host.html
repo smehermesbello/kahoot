@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Professor (Host)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #f2f2f2; padding: 20px; text-align: center; }
+        .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 700px; margin: 20px auto; }
+        button { padding: 12px 24px; font-size: 16px; background-color: #46178f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px; }
+        button:hover { background-color: #33106a; }
+        .grid-respostas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .resp { padding: 20px; color: white; font-size: 20px; font-weight: bold; border-radius: 6px; text-align: left; }
+        .red { background-color: #e21b3c; } .blue { background-color: #1368ce; } .yellow { background-color: #d89e00; } .green { background-color: #26890c; }
+        ol { text-align: left; max-width: 400px; margin: 20px auto; font-size: 22px; font-weight: bold; color: #46178f; }
+        li { margin-bottom: 8px; background: #eee; padding: 8px; border-radius: 4px; display: flex; justify-content: space-between; }
+        #qrcode { display: inline-block; margin-top: 15px; }
+        textarea { width: 90%; height: 80px; margin: 5px; font-size: 16px; }
+        input.resp-input { width: 42%; padding: 8px; margin: 5px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<h1>Painel do Professor - Host</h1>
+
+<div id="painel-criacao" class="box">
+    <h2>Criar Questionário (Máx 15 Questões)</h2>
+    <div id="contador-questoes">Questões adicionadas: 0/15</div>
+    <hr>
+    <textarea id="pergunta-txt" placeholder="Digite a pergunta aqui..."></textarea><br>
+    <input type="text" id="respA" class="resp-input" placeholder="Alternativa Vermelha (▲)">
+    <input type="text" id="respB" class="resp-input" placeholder="Alternativa Azul (✦)"><br>
+    <input type="text" id="respC" class="resp-input" placeholder="Alternativa Amarela (●)">
+    <input type="text" id="respD" class="resp-input" placeholder="Alternativa Verde (■)"><br>
+    <label style="font-weight:bold;">Alternativa Correta: </label>
+    <select id="respCorreta" style="padding:5px; font-size:14px;">
+        <option value="A">Vermelho (A)</option>
+        <option value="B">Azul (B)</option>
+        <option value="C">Amarelo (C)</option>
+        <option value="D">Verde (D)</option>
+    </select>
+    <br><br>
+    <button onclick="adicionarQuestao()">Adicionar Questão</button>
+    <button style="background:#26890c;" onclick="iniciarSalaDoJogo()">Salvar e Abrir Sala de Aula</button>
+</div>
+
+<div id="painel-espera" class="box" style="display:none;">
+    <h2>Aparato de Entrada dos Alunos</h2>
+    <h1 style="font-size:48px; color:#46178f; margin:5px;">PIN: <span id="pin-sala">000000</span></h1>
+    <div id="qrcode"></div>
+    <h3>Alunos na Sala: <span id="qtd-jogadores">0</span></h3>
+    <div id="lista-nomes-espera" style="font-weight:bold; color:#555;"></div>
+    <br>
+    <button onclick="comecarPartida()">Começar o Jogo!</button>
+</div>
+
+<div id="painel-jogo" class="box" style="display:none;">
+    <h2 id="num-questao">Pergunta 1 de X</h2>
+    <h1 id="texto-pergunta" style="font-size:32px;">...</h1>
+    <div style="font-size:30px; font-weight:bold; color:red; margin:10px;">Tempo: <span id="timer-host">40</span>s</div>
+    
+    <div class="grid-respostas">
+        <div class="resp red">▲ <span id="txtA"></span></div>
+        <div class="resp blue">✦ <span id="txtB"></span></div>
+        <div class="resp yellow">● <span id="txtC"></span></div>
+        <div class="resp green">■ <span id="txtD"></span></div>
+    </div>
+    <br>
+    <button onclick="fecharQuestaoEMostrarRanking()">Encerrar Pergunta</button>
+</div>
+
+<div id="painel-ranking" class="box" style="display:none;">
+    <h2>Placar Geral - TOP 10</h2>
+    <h3 style="color:green;">Resposta Correta: <span id="gabarito-rodada"></span></h3>
+    <ol id="lista-ranking"></ol>
+    <br>
+    <button id="btn-proxima" onclick="proximaQuestao()">Próxima Pergunta</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyD-JQw67r1lrSz-o5DnsdVjVes33EkbsuM",
+        authDomain: "quiz-kahoot-hermes.firebaseapp.com",
+        databaseURL: "https://quiz-kahoot-hermes-default-rtdb.firebaseio.com",
+        projectId: "quiz-kahoot-hermes",
+        storageBucket: "quiz-kahoot-hermes.firebasestorage.app",
+        messagingSenderId: "735360984913",
+        appId: "1:735360984913:web:61e81031e7aec51c035570",
+        measurementId: "G-J9R1KRP2R3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let bancoQuestoes = [];
+    let pinSala = Math.floor(100000 + Math.random() * 900000);
+    let indiceQuestaoAtual = 0;
+    let tempoRestante = 40;
+    let cronometroHost;
+
+    function adicionarQuestao() {
+        if(bancoQuestoes.length >= 15) {
+            alert("Limite máximo de 15 questões atingido!");
+            return;
+        }
+        bancoQuestoes.push({
+            pergunta: document.getElementById('pergunta-txt').value,
+            A: document.getElementById('respA').value,
+            B: document.getElementById('respB').value,
+            C: document.getElementById('respC').value,
+            D: document.getElementById('respD').value,
+            correta: document.getElementById('respCorreta').value
+        });
+        document.getElementById('contador-questoes').innerText = `Questões adicionadas: ${bancoQuestoes.length}/15`;
+        document.getElementById('pergunta-txt').value = "";
+        document.getElementById('respA').value = ""; document.getElementById('respB').value = "";
+        document.getElementById('respC').value = ""; document.getElementById('respD').value = "";
+    }
+
+    function iniciarSalaDoJogo() {
+        if(bancoQuestoes.length === 0) { alert("Adicione pelo menos 1 questão!"); return; }
+        
+        document.getElementById('painel-criacao').style.display = 'none';
+        document.getElementById('painel-espera').style.display = 'block';
+        document.getElementById('pin-sala').innerText = pinSala;
+
+        const urlAluno = window.location.href.replace('host.html', 'index.html') + `?sala=${pinSala}`;
+        document.getElementById("qrcode").innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), { text: urlAluno, width: 200, height: 200 });
+
+        database.ref('salas/' + pinSala).set({ status: 'espera', perguntaAtual: 0 });
+
+        database.ref('salas/' + pinSala + '/jogadores').on('value', snapshot => {
+            const jogadores = snapshot.val() || {};
+            const nomes = Object.keys(jogadores);
+            document.getElementById('qtd-jogadores').innerText = nomes.length;
+            document.getElementById('lista-nomes-espera').innerText = nomes.join(', ');
+        });
+    }
+
+    function comecarPartida() {
+        indiceQuestaoAtual = 0;
+        carregarQuestao();
+    }
+
+    function carregarQuestao() {
+        const q = bancoQuestoes[indiceQuestaoAtual];
+        document.getElementById('painel-espera').style.display = 'none';
+        document.getElementById('painel-ranking').style.display = 'none';
+        document.getElementById('painel-jogo').style.display = 'block';
+
+        document.getElementById('num-questao').innerText = `Pergunta ${indiceQuestaoAtual + 1} de ${bancoQuestoes.length}`;
+        document.getElementById('texto-pergunta').innerText = q.pergunta;
+        document.getElementById('txtA').innerText = q.A; document.getElementById('txtB').innerText = q.B;
+        document.getElementById('txtC').innerText = q.C; document.getElementById('txtD').innerText = q.D;
+
+        database.ref('salas/' + pinSala).update({ status: 'jogando', perguntaAtual: indiceQuestaoAtual });
+
+        tempoRestante = 40;
+        document.getElementById('timer-host').innerText = tempoRestante;
+        clearInterval(cronometroHost);
+        cronometroHost = setInterval(() => {
+            tempoRestante--;
+            document.getElementById('timer-host').innerText = tempoRestante;
+            if(tempoRestante <= 0) {
+                clearInterval(cronometroHost);
+                fecharQuestaoEMostrarRanking();
+            }
+        }, 1000);
+    }
+
+    function fecharQuestaoEMostrarRanking() {
+        clearInterval(cronometroHost);
+        const q = bancoQuestoes[indiceQuestaoAtual];
+        document.getElementById('gabarito-rodada').innerText = q.correta + " (" + q[q.correta] + ")";
+
+        database.ref('salas/' + pinSala + '/jogadores').once('value', snapshot => {
+            const jogadores = snapshot.val() || {};
+            
+            Object.keys(jogadores).forEach(nome => {
+                const jogador = jogadores[nome];
+                let pontosGanhos = 0;
+
+                if (jogador.ultima_resposta === q.correta) {
+                    let t = jogador.tempo_resposta;
+                    if(t <= 10 && t > 0) {
+                        pontosGanhos = 50;
+                    } else if (t > 10) {
+                        pontosGanhos = 50 + ((t - 10) / (40 - 10)) * (1000 - 50);
+                    }
+                }
+                pontosGanhos = Math.round(pontosGanhos);
+                let novoScore = (jogador.score || 0) + pontosGanhos;
+
+                database.ref(`salas/${pinSala}/jogadores/${nome}`).update({
+                    score: novoScore,
+                    ganhouPontosNessaRodada: pontosGanhos,
+                    ultima_resposta: ""
+                });
+            });
+
+            setTimeout(() => {
+                database.ref('salas/' + pinSala + '/jogadores').once('value', snapAtualizado => {
+                    const lista = snapAtualizado.val() || {};
+                    const ordenados = Object.keys(lista).map(k => ({nome: k, ...lista[k]})).sort((a,b) => b.score - a.score).slice(0, 10);
+
+                    const ol = document.getElementById('lista-ranking');
+                    ol.innerHTML = "";
+                    ordenados.forEach(p => {
+                        ol.innerHTML += `<li><span>${p.nome}</span> <span>${p.score} pts</span></li>`;
+                    });
+
+                    document.getElementById('painel-jogo').style.display = 'none';
+                    document.getElementById('painel-ranking').style.display = 'block';
+
+                    if(indiceQuestaoAtual >= bancoQuestoes.length - 1){
+                        document.getElementById('btn-proxima').innerText = "Encerrar Jogo Final";
+                    }
+
+                    database.ref('salas/' + pinSala).update({ status: 'ranking' });
+                });
+            }, 800);
+        });
+    }
+
+    function proximaQuestao() {
+        indiceQuestaoAtual++;
+        if(indiceQuestaoAtual < bancoQuestoes.length) {
+            carregarQuestao();
+        } else {
+            alert("Fim do Jogo! Parabéns aos vencedores.");
+            database.ref('salas/' + pinSala).remove();
+            window.location.reload();
+        }
+    }
+</script>
+</body>
+</html>
